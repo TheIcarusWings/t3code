@@ -18,7 +18,7 @@ import {
   getProviderOptionCurrentValue,
   getProviderOptionDescriptors,
 } from "@t3tools/shared/model";
-import { HostProcessEnv, HostProcessPlatform } from "@t3tools/shared/hostProcess";
+import { HostProcessPlatform } from "@t3tools/shared/hostProcess";
 import { compareSemverVersions } from "@t3tools/shared/semver";
 import {
   query as claudeQuery,
@@ -568,8 +568,7 @@ const probeClaudeCapabilities = (
 ) => {
   const abort = new AbortController();
   return Effect.gen(function* () {
-    const hostEnv = yield* HostProcessEnv;
-    const claudeEnvironment = yield* makeClaudeEnvironment(claudeSettings, environment ?? hostEnv);
+    const claudeEnvironment = yield* makeClaudeEnvironment(claudeSettings, environment);
     return yield* Effect.tryPromise(async () => {
       const q = claudeQuery({
         // Never yield — we only need initialization data, not a conversation.
@@ -623,9 +622,8 @@ const runClaudeCommand = Effect.fn("runClaudeCommand")(function* (
   args: ReadonlyArray<string>,
   environment?: NodeJS.ProcessEnv,
 ) {
-  const hostEnv = yield* HostProcessEnv;
   const hostPlatform = yield* HostProcessPlatform;
-  const claudeEnvironment = yield* makeClaudeEnvironment(claudeSettings, environment ?? hostEnv);
+  const claudeEnvironment = yield* makeClaudeEnvironment(claudeSettings, environment);
   const command = ChildProcess.make(claudeSettings.binaryPath, [...args], {
     env: claudeEnvironment,
     shell: hostPlatform === "win32",
@@ -644,8 +642,7 @@ export const checkClaudeProviderStatus = Effect.fn("checkClaudeProviderStatus")(
   never,
   ChildProcessSpawner.ChildProcessSpawner | Path.Path
 > {
-  const hostEnv = yield* HostProcessEnv;
-  const resolvedEnvironment = environment ?? hostEnv;
+  const resolvedEnvironment = environment ?? process.env;
   const checkedAt = DateTime.formatIso(yield* DateTime.now);
   const allModels = providerModelsFromSettings(
     BUILT_IN_MODELS,
