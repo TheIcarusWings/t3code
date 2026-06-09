@@ -309,6 +309,9 @@ export const layer: Layer.Layer<
                     checkpointScope: input.checkpointScope,
                     providerThread,
                     attempt: input.attempt,
+                    ...(input.shouldFinalizeRun === undefined
+                      ? {}
+                      : { shouldFinalizeRun: input.shouldFinalizeRun }),
                     status,
                     runtimePolicy: input.runtimePolicy,
                   });
@@ -330,11 +333,13 @@ export const layer: Layer.Layer<
               }
               if (event.type === "turn.terminal") {
                 yield* Ref.set(terminalStatus, event.status);
-                yield* finalizeRun(event.status);
               }
             });
           const providerEventFiber = yield* input.session.events.pipe(
+            Stream.takeUntil((event) => event.type === "turn.terminal"),
             Stream.runForEach(ingestProviderEvent),
+            Effect.andThen(Ref.get(terminalStatus)),
+            Effect.flatMap((status) => (status === null ? Effect.void : finalizeRun(status))),
             Effect.mapError((cause) => new RunExecutionIngestError({ runId: input.run.id, cause })),
             Effect.catchCause((cause) =>
               Ref.get(latestProviderThread).pipe(
@@ -345,6 +350,9 @@ export const layer: Layer.Layer<
                     checkpointScope: input.checkpointScope,
                     providerThread,
                     attempt: input.attempt,
+                    ...(input.shouldFinalizeRun === undefined
+                      ? {}
+                      : { shouldFinalizeRun: input.shouldFinalizeRun }),
                     status: "failed",
                     runtimePolicy: input.runtimePolicy,
                   }),
@@ -400,6 +408,9 @@ export const layer: Layer.Layer<
                       checkpointScope: input.checkpointScope,
                       providerThread,
                       attempt: input.attempt,
+                      ...(input.shouldFinalizeRun === undefined
+                        ? {}
+                        : { shouldFinalizeRun: input.shouldFinalizeRun }),
                       status: "failed",
                       runtimePolicy: input.runtimePolicy,
                     }),
